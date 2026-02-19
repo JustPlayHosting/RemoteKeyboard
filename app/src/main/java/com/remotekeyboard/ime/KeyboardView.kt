@@ -92,7 +92,7 @@ class KeyboardView(
             Key("?", Command.TYPE_CHAR, "?"),
             Key("!", Command.TYPE_CHAR, "!"),
             Key("@", Command.TYPE_CHAR, "@"),
-            Key("DEL", Command.TYPE_DELETE, "")
+            Key("DEL", Command.TYPE_CLEAR, "")
         )
     )
 
@@ -189,4 +189,3 @@ class KeyButton(
         return true
     }
 }
-
