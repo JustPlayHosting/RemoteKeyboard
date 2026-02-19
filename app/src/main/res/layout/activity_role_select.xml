@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#1A1A2E">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Remote Keyboard"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Choose this phone's role"
+        android:textSize="14sp"
+        android:textColor="#AAAAAA"
+        android:layout_marginBottom="48dp"/>
+
+    <Button
+        android:id="@+id/btnKeyboardMode"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:text="⌨  Keyboard Mode\n(This phone types)"
+        android:textSize="15sp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#3A86FF"/>
+
+    <Button
+        android:id="@+id/btnTargetMode"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:text="📱  Target Mode\n(Receive &amp; inject keystrokes)"
+        android:textSize="15sp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#06D6A0"/>
+
+    <Button
+        android:id="@+id/btnTeleprompter"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:text="📺  Teleprompter Mode\n(Display text full-screen)"
+        android:textSize="15sp"
+        android:layout_marginBottom="32dp"
+        android:backgroundTint="#FF6B6B"/>
+
+    <Button
+        android:id="@+id/btnImeSetup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚙ Enable Remote Keyboard IME"
+        android:backgroundTint="#444444"
+        android:textColor="#CCCCCC"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pair phones via Bluetooth first"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:layout_marginTop="24dp"/>
+
+</LinearLayout>
+  
