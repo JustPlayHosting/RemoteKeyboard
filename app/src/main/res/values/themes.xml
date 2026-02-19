@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RemoteKeyboard" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#3A86FF</item>
+        <item name="colorPrimaryVariant">#1A1A2E</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:windowBackground">#1A1A2E</item>
+    </style>
+    <style name="Theme.RemoteKeyboard.Fullscreen" parent="Theme.RemoteKeyboard">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="android:windowBackground">#000000</item>
+    </style>
+</resources>
+
