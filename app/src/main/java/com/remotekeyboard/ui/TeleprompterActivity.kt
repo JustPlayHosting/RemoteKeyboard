@@ -17,7 +17,7 @@ class TeleprompterActivity : AppCompatActivity() {
         override fun onReceive(ctx: Context, intent: Intent) {
             when (intent.action) {
                 BluetoothService.BROADCAST_COMMAND -> {
-                    val type = intent.getByteExtra(BluetoothService.EXTRA_COMMAND_TYPE, 0)
+                    val type = intent.getIntExtra(BluetoothService.EXTRA_COMMAND_TYPE, 0).toByte()
                     val text = intent.getStringExtra(BluetoothService.EXTRA_COMMAND_TEXT) ?: ""
                     applyCommand(type, text)
                 }
@@ -80,4 +80,3 @@ class TeleprompterActivity : AppCompatActivity() {
         super.onDestroy()
     }
 }
-
