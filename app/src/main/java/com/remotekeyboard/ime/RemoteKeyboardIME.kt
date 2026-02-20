@@ -23,7 +23,7 @@ class RemoteKeyboardIME : InputMethodService() {
         override fun onReceive(ctx: Context, intent: Intent) {
             when (intent.action) {
                 BluetoothService.BROADCAST_COMMAND -> {
-                    val type = intent.getByteExtra(BluetoothService.EXTRA_COMMAND_TYPE, 0)
+                    val type = intent.getIntExtra(BluetoothService.EXTRA_COMMAND_TYPE, 0).toByte()
                     val text = intent.getStringExtra(BluetoothService.EXTRA_COMMAND_TEXT) ?: ""
                     injectCommand(type, text)
                 }
@@ -147,8 +147,9 @@ class RemoteKeyboardIME : InputMethodService() {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_RIGHT))
             }
             Command.TYPE_SELECT_ALL -> {
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A,
-                    0, KeyEvent.META_CTRL_ON))
+                val now = System.currentTimeMillis()
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN,
+                    KeyEvent.KEYCODE_A, 0, KeyEvent.META_CTRL_ON))
             }
         }
     }
@@ -162,4 +163,3 @@ class RemoteKeyboardIME : InputMethodService() {
         super.onDestroy()
     }
 }
-
