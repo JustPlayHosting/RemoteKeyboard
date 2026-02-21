@@ -10,7 +10,7 @@ import android.widget.*
 import com.remotekeyboard.protocol.Command
 
 enum class ShiftState { OFF, ON, CAPS_LOCK }
-enum class KeyboardLayer { ALPHA, SYMBOL, SYMBOL2, EMOJI }
+enum class KeyboardLayer { ALPHA, SYMBOL, SYMBOL2, EMOJI, SWITCH_IME }
 
 data class Key(
     val label: String,
@@ -73,8 +73,8 @@ class KeyboardView(
         listOf(
             Key("?123", Command.TYPE_CHAR, "", isSpecial = true, weight = 1.3f),
             Key(",", Command.TYPE_CHAR, ","),
-            Key("😊", Command.TYPE_CHAR, "", isSpecial = true),
-            Key("English", Command.TYPE_CHAR, " ", weight = 3.5f),
+            Key("🌐", Command.TYPE_CHAR, "", isSpecial = true),
+            Key("English", Command.TYPE_CHAR, " ", weight = 3f),
             Key(".", Command.TYPE_CHAR, ".", longPressText = "…"),
             Key("↵", Command.TYPE_ENTER, "", isAction = true, weight = 1.3f)
         )
@@ -106,8 +106,8 @@ class KeyboardView(
         listOf(
             Key("ABC", Command.TYPE_CHAR, "", isSpecial = true, weight = 1.3f),
             Key(",", Command.TYPE_CHAR, ","),
-            Key("😊", Command.TYPE_CHAR, "", isSpecial = true),
-            Key("English", Command.TYPE_CHAR, " ", weight = 3.5f),
+            Key("🌐", Command.TYPE_CHAR, "", isSpecial = true),
+            Key("English", Command.TYPE_CHAR, " ", weight = 3f),
             Key(".", Command.TYPE_CHAR, "."),
             Key("↵", Command.TYPE_ENTER, "", isAction = true, weight = 1.3f)
         )
@@ -139,8 +139,8 @@ class KeyboardView(
         listOf(
             Key("ABC", Command.TYPE_CHAR, "", isSpecial = true, weight = 1.3f),
             Key(",", Command.TYPE_CHAR, ","),
-            Key("😊", Command.TYPE_CHAR, "", isSpecial = true),
-            Key("English", Command.TYPE_CHAR, " ", weight = 3.5f),
+            Key("🌐", Command.TYPE_CHAR, "", isSpecial = true),
+            Key("English", Command.TYPE_CHAR, " ", weight = 3f),
             Key(".", Command.TYPE_CHAR, "."),
             Key("↵", Command.TYPE_ENTER, "", isAction = true, weight = 1.3f)
         )
@@ -152,10 +152,11 @@ class KeyboardView(
     }
 
     private fun activeRows() = when (currentLayer) {
-        KeyboardLayer.ALPHA   -> alphaRows
-        KeyboardLayer.SYMBOL  -> symbolRows
-        KeyboardLayer.SYMBOL2 -> symbol2Rows
-        KeyboardLayer.EMOJI   -> alphaRows
+        KeyboardLayer.ALPHA       -> alphaRows
+        KeyboardLayer.SYMBOL      -> symbolRows
+        KeyboardLayer.SYMBOL2     -> symbol2Rows
+        KeyboardLayer.EMOJI       -> alphaRows
+        KeyboardLayer.SWITCH_IME  -> alphaRows
     }
 
     fun rebuild() {
@@ -198,6 +199,7 @@ class KeyboardView(
             "ABC"   -> { currentLayer = KeyboardLayer.ALPHA;   return }
             "=\\<"  -> { currentLayer = KeyboardLayer.SYMBOL2; return }
             "😊"    -> { onSwitchLayer(KeyboardLayer.EMOJI);   return }
+            "🌐"    -> { onSwitchLayer(KeyboardLayer.SWITCH_IME); return }
             "⌫"    -> { onKey(Command.TYPE_BACKSPACE, "");     return }
             "↵"    -> { onKey(Command.TYPE_ENTER, "");          return }
             "English" -> { onKey(Command.TYPE_CHAR, " ");       return }
@@ -394,4 +396,3 @@ class EmojiAdapter(
         return tv
     }
 }
-
