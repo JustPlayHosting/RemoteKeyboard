@@ -4,11 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
-import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.remotekeyboard.bluetooth.BluetoothService
@@ -17,7 +18,10 @@ import com.remotekeyboard.protocol.Command
 class RemoteKeyboardIME : InputMethodService() {
 
     private var remoteMode = false
-    private var statusText: TextView? = null
+    private var statusBar: TextView? = null
+    private var keyboardView: KeyboardView? = null
+    private var emojiPanel: EmojiPanel? = null
+    private var rootContainer: FrameLayout? = null
 
     private val commandReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
@@ -29,11 +33,13 @@ class RemoteKeyboardIME : InputMethodService() {
                 }
                 BluetoothService.BROADCAST_CONNECTED -> {
                     remoteMode = true
-                    statusText?.text = "Remote: Connected"
+                    statusBar?.text = "🔵 Connected"
+                    statusBar?.setTextColor(Color.parseColor("#4CAF50"))
                 }
                 BluetoothService.BROADCAST_DISCONNECTED -> {
                     remoteMode = false
-                    statusText?.text = "Remote: Disconnected"
+                    statusBar?.text = "⚫ Local"
+                    statusBar?.setTextColor(Color.parseColor("#FF5252"))
                 }
             }
         }
@@ -50,75 +56,86 @@ class RemoteKeyboardIME : InputMethodService() {
     }
 
     override fun onCreateInputView(): View {
-        return buildKeyboardView()
-    }
-
-    private fun buildKeyboardView(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF222222.toInt())
+            setBackgroundColor(Color.parseColor("#1B2836"))
         }
 
-        // Status bar
-        statusText = TextView(this).apply {
-            text = if (remoteMode) "Remote: Connected" else "Local Mode"
-            textSize = 12f
-            setTextColor(0xFFAAAAAA.toInt())
-            setPadding(16, 8, 16, 4)
+        // Toolbar
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#141F2B"))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
         }
-        root.addView(statusText)
+        listOf("😊", "GIF", "G▸", "📋", "🎨", "🎤").forEach { label ->
+            toolbar.addView(TextView(this).apply {
+                text = label
+                textSize = 15f
+                setTextColor(Color.parseColor("#B0BEC5"))
+                setPadding(dp(10), dp(6), dp(10), dp(6))
+            })
+        }
+        // Spacer
+        toolbar.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+        })
+        // Status chip
+        statusBar = TextView(this).apply {
+            text = if (remoteMode) "🔵 Connected" else "⚫ Local"
+            textSize = 10f
+            setTextColor(
+                if (remoteMode) Color.parseColor("#4CAF50")
+                else Color.parseColor("#78909C")
+            )
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+        }
+        toolbar.addView(statusBar)
+        root.addView(toolbar)
 
-        // Keyboard rows
-        val rows = listOf(
-            listOf("q","w","e","r","t","y","u","i","o","p"),
-            listOf("a","s","d","f","g","h","j","k","l"),
-            listOf("z","x","c","v","b","n","m","⌫"),
-            listOf("123","Space","←","→","↵")
+        // Keyboard / Emoji frame
+        rootContainer = FrameLayout(this)
+
+        keyboardView = KeyboardView(this,
+            onKey = { type, text -> sendOrInject(type, text) },
+            onSwitchLayer = { layer ->
+                if (layer == KeyboardLayer.EMOJI) showEmoji()
+            }
+        )
+        rootContainer!!.addView(
+            keyboardView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
         )
 
-        for (row in rows) {
-            val rowLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
-            for (label in row) {
-                val btn = Button(this).apply {
-                    text = label
-                    textSize = when (label) {
-                        "Space" -> 12f
-                        "⌫", "←", "→", "↵" -> 16f
-                        else -> 14f
-                    }
-                    setTextColor(0xFFFFFFFF.toInt())
-                    setBackgroundColor(0xFF444444.toInt())
-                    val weight = when (label) { "Space" -> 3f; else -> 1f }
-                    layoutParams = LinearLayout.LayoutParams(0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT, weight).apply {
-                        setMargins(2, 2, 2, 2)
-                    }
-                    setPadding(4, 12, 4, 12)
-                    setOnClickListener { onKeyTapped(label) }
-                }
-                rowLayout.addView(btn)
-            }
-            root.addView(rowLayout)
-        }
+        root.addView(
+            rootContainer,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
         return root
     }
 
-    private fun onKeyTapped(label: String) {
-        when (label) {
-            "⌫" -> sendOrInject(Command.TYPE_BACKSPACE, "")
-            "↵" -> sendOrInject(Command.TYPE_ENTER, "")
-            "←" -> sendOrInject(Command.TYPE_CURSOR_LEFT, "")
-            "→" -> sendOrInject(Command.TYPE_CURSOR_RIGHT, "")
-            "Space" -> sendOrInject(Command.TYPE_CHAR, " ")
-            "123" -> { /* TODO: switch to symbols */ }
-            else -> sendOrInject(Command.TYPE_CHAR, label)
-        }
+    private fun showEmoji() {
+        val container = rootContainer ?: return
+        emojiPanel?.let { container.removeView(it) }
+        emojiPanel = EmojiPanel(this,
+            onEmoji = { emoji -> sendOrInject(Command.TYPE_CHAR, emoji) },
+            onBack  = { hideEmoji() }
+        )
+        container.addView(
+            emojiPanel,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(220))
+        )
+    }
+
+    private fun hideEmoji() {
+        emojiPanel?.let { rootContainer?.removeView(it) }
+        emojiPanel = null
     }
 
     private fun sendOrInject(type: Byte, text: String) {
@@ -156,7 +173,11 @@ class RemoteKeyboardIME : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        hideEmoji()
+        keyboardView?.shiftState = ShiftState.OFF
     }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
         unregisterReceiver(commandReceiver)
