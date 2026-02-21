@@ -1,8 +1,6 @@
 package com.remotekeyboard.ui
 
 import android.Manifest
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -17,7 +15,6 @@ import com.remotekeyboard.databinding.ActivityRoleSelectBinding
 class RoleSelectActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRoleSelectBinding
-
     private val PERM_REQUEST = 100
 
     private val requiredPermissions: Array<String>
@@ -39,42 +36,27 @@ class RoleSelectActivity : AppCompatActivity() {
         binding = ActivityRoleSelectBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Request permissions immediately on launch
         requestAllPermissions()
 
         binding.btnKeyboardMode.setOnClickListener {
-            if (allPermissionsGranted()) {
-                startActivity(Intent(this, KeyboardActivity::class.java))
-            } else {
-                requestAllPermissions()
-            }
+            if (allPermissionsGranted()) startActivity(Intent(this, KeyboardActivity::class.java))
+            else requestAllPermissions()
         }
-
         binding.btnTargetMode.setOnClickListener {
-            if (allPermissionsGranted()) {
-                startActivity(Intent(this, TargetActivity::class.java))
-            } else {
-                requestAllPermissions()
-            }
+            if (allPermissionsGranted()) startActivity(Intent(this, TargetActivity::class.java))
+            else requestAllPermissions()
         }
-
         binding.btnTeleprompter.setOnClickListener {
-            if (allPermissionsGranted()) {
-                startActivity(Intent(this, TeleprompterActivity::class.java))
-            } else {
-                requestAllPermissions()
-            }
+            if (allPermissionsGranted()) startActivity(Intent(this, TeleprompterActivity::class.java))
+            else requestAllPermissions()
         }
-
         binding.btnImeSetup.setOnClickListener {
             startActivity(Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))
         }
     }
 
-    private fun allPermissionsGranted(): Boolean {
-        return requiredPermissions.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
+    private fun allPermissionsGranted() = requiredPermissions.all {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun requestAllPermissions() {
@@ -83,7 +65,6 @@ class RoleSelectActivity : AppCompatActivity() {
         }
         if (missing.isEmpty()) return
 
-        // If user previously denied, show explanation first
         val shouldExplain = missing.any {
             ActivityCompat.shouldShowRequestPermissionRationale(this, it)
         }
@@ -91,7 +72,7 @@ class RoleSelectActivity : AppCompatActivity() {
         if (shouldExplain) {
             AlertDialog.Builder(this)
                 .setTitle("Bluetooth Permission Required")
-                .setMessage("This app needs Bluetooth access to connect the two phones. Please grant the permission.")
+                .setMessage("This app needs Bluetooth to connect the two phones.")
                 .setPositiveButton("Grant") { _, _ ->
                     ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERM_REQUEST)
                 }
@@ -102,22 +83,13 @@ class RoleSelectActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERM_REQUEST) {
-            val denied = grantResults.any { it != PackageManager.PERMISSION_GRANTED }
-            if (denied) {
-                Toast.makeText(
-                    this,
-                    "Bluetooth permissions are required for this app to work.",
-                    Toast.LENGTH_LONG
-                ).show()
-            } else {
+    override fun onRequestPermissionsResult(req: Int, perms: Array<String>, results: IntArray) {
+        super.onRequestPermissionsResult(req, perms, results)
+        if (req == PERM_REQUEST) {
+            if (results.all { it == PackageManager.PERMISSION_GRANTED }) {
                 Toast.makeText(this, "Permissions granted!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Bluetooth permissions are required.", Toast.LENGTH_LONG).show()
             }
         }
     }
