@@ -1,6 +1,7 @@
 package com.remotekeyboard.ime
 
 import android.content.BroadcastReceiver
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -9,9 +10,11 @@ import android.inputmethodservice.InputMethodService
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.remotekeyboard.bluetooth.BluetoothService
 import com.remotekeyboard.protocol.Command
 
@@ -66,19 +69,45 @@ class RemoteKeyboardIME : InputMethodService() {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.parseColor("#141F2B"))
             setPadding(dp(8), dp(4), dp(8), dp(4))
+            gravity = android.view.Gravity.CENTER_VERTICAL
         }
-        listOf("😊", "GIF", "G▸", "📋", "🎨", "🎤").forEach { label ->
-            toolbar.addView(TextView(this).apply {
+
+        fun toolbarBtn(label: String, action: () -> Unit): TextView {
+            return TextView(this).apply {
                 text = label
                 textSize = 15f
                 setTextColor(Color.parseColor("#B0BEC5"))
                 setPadding(dp(10), dp(6), dp(10), dp(6))
-            })
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { action() }
+            }
         }
+
+        toolbar.addView(toolbarBtn("😊") { showEmoji() })
+
+
+        toolbar.addView(toolbarBtn("📋") {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = clipboard.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val text = clip.getItemAt(0).coerceToText(this).toString()
+                sendOrInject(Command.TYPE_CHAR, text)
+            } else {
+                Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            }
+        })
+
+        toolbar.addView(toolbarBtn("🎨") {
+            Toast.makeText(this, "Theme customisation coming soon", Toast.LENGTH_SHORT).show()
+        })
+
+
         // Spacer
         toolbar.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
         })
+
         // Status chip
         statusBar = TextView(this).apply {
             text = if (remoteMode) "🔵 Connected" else "⚫ Local"
@@ -100,7 +129,12 @@ class RemoteKeyboardIME : InputMethodService() {
             onSwitchLayer = { layer ->
                 when (layer) {
                     KeyboardLayer.EMOJI       -> showEmoji()
-                    KeyboardLayer.SWITCH_IME  -> switchToNextInputMethod(false)
+                    KeyboardLayer.SWITCH_IME  -> {
+                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                        // Try switching directly first, fall back to picker
+                        val switched = switchToNextInputMethod(false)
+                        if (!switched) imm.showInputMethodPicker()
+                    }
                     else -> {}
                 }
             }
