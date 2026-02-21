@@ -98,7 +98,11 @@ class RemoteKeyboardIME : InputMethodService() {
         keyboardView = KeyboardView(this,
             onKey = { type, text -> sendOrInject(type, text) },
             onSwitchLayer = { layer ->
-                if (layer == KeyboardLayer.EMOJI) showEmoji()
+                when (layer) {
+                    KeyboardLayer.EMOJI       -> showEmoji()
+                    KeyboardLayer.SWITCH_IME  -> switchToNextInputMethod(false)
+                    else -> {}
+                }
             }
         )
         rootContainer!!.addView(
