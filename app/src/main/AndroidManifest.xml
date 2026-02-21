@@ -3,8 +3,12 @@
 
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -17,7 +21,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.RemoteKeyboard">
 
-        <!-- Role Selection - launcher activity -->
         <activity
             android:name=".ui.RoleSelectActivity"
             android:exported="true"
@@ -28,13 +31,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Keyboard Controller Activity -->
         <activity
             android:name=".ui.KeyboardActivity"
             android:exported="false"
             android:label="Keyboard Mode"/>
 
-        <!-- Teleprompter / Target Activity -->
         <activity
             android:name=".ui.TeleprompterActivity"
             android:exported="false"
@@ -42,13 +43,11 @@
             android:label="Teleprompter Mode"
             android:theme="@style/Theme.RemoteKeyboard.Fullscreen"/>
 
-        <!-- Target Receive Activity -->
         <activity
             android:name=".ui.TargetActivity"
             android:exported="false"
             android:label="Target Mode"/>
 
-        <!-- The IME Service -->
         <service
             android:name=".ime.RemoteKeyboardIME"
             android:exported="true"
@@ -62,7 +61,6 @@
                 android:resource="@xml/method"/>
         </service>
 
-        <!-- Bluetooth Foreground Service -->
         <service
             android:name=".bluetooth.BluetoothService"
             android:exported="false"
@@ -71,4 +69,3 @@
     </application>
 
 </manifest>
-      
