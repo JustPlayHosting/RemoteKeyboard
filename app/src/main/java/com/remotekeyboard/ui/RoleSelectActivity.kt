@@ -1,6 +1,7 @@
 package com.remotekeyboard.ui
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -18,17 +19,18 @@ class RoleSelectActivity : AppCompatActivity() {
     private val PERM_REQUEST = 100
 
     private val requiredPermissions: Array<String>
-        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            arrayOf(
+        get() = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> arrayOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN
             )
-        } else {
-            arrayOf(
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> arrayOf(
                 Manifest.permission.BLUETOOTH,
                 Manifest.permission.BLUETOOTH_ADMIN,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
             )
+            else -> emptyArray() // Android 5 — permissions auto-granted at install
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,11 +57,15 @@ class RoleSelectActivity : AppCompatActivity() {
         }
     }
 
-    private fun allPermissionsGranted() = requiredPermissions.all {
-        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    private fun allPermissionsGranted(): Boolean {
+        if (requiredPermissions.isEmpty()) return true
+        return requiredPermissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     private fun requestAllPermissions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return // auto-granted on Android 5
         val missing = requiredPermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -68,11 +74,10 @@ class RoleSelectActivity : AppCompatActivity() {
         val shouldExplain = missing.any {
             ActivityCompat.shouldShowRequestPermissionRationale(this, it)
         }
-
         if (shouldExplain) {
             AlertDialog.Builder(this)
                 .setTitle("Bluetooth Permission Required")
-                .setMessage("This app needs Bluetooth to connect the two phones.")
+                .setMessage("This app needs Bluetooth to connect two phones wirelessly.")
                 .setPositiveButton("Grant") { _, _ ->
                     ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERM_REQUEST)
                 }
