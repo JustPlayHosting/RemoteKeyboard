@@ -56,7 +56,6 @@ class RemoteKeyboardIME : InputMethodService() {
             addAction(BluetoothService.BROADCAST_CONNECTED)
             addAction(BluetoothService.BROADCAST_DISCONNECTED)
         }
-        // RECEIVER_NOT_EXPORTED is API 33+ only
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -138,24 +137,35 @@ class RemoteKeyboardIME : InputMethodService() {
                 }
             }
         )
-        rootContainer!!.addView(keyboardView,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT))
 
-        root.addView(rootContainer,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT))
+        rootContainer!!.addView(
+            keyboardView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        root.addView(
+            rootContainer,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
 
         return root
     }
 
     private fun switchIME() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            // API 28+ — switch directly without picker
-            switchToNextInputMethod(false)
+        // window token is required — this is the correct cross-version approach
+        val token = window?.window?.attributes?.token
+        if (token != null) {
+            @Suppress("DEPRECATION")
+            imm.switchToNextInputMethod(token, false)
         } else {
-            // API 21–27 — show the system IME picker
+            // Fallback: show the system IME picker
             imm.showInputMethodPicker()
         }
     }
@@ -167,8 +177,10 @@ class RemoteKeyboardIME : InputMethodService() {
             onEmoji = { emoji -> sendOrInject(Command.TYPE_CHAR, emoji) },
             onBack  = { hideEmoji() }
         )
-        container.addView(emojiPanel,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(220)))
+        container.addView(
+            emojiPanel,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(220))
+        )
     }
 
     private fun hideEmoji() {
