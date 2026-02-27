@@ -6,7 +6,6 @@ import android.content.Intent
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.remotekeyboard.R
 import com.remotekeyboard.protocol.Command
 import com.remotekeyboard.ui.RoleSelectActivity
 import java.io.*
@@ -21,13 +20,10 @@ class BluetoothService : Service() {
         const val CHANNEL_ID = "RemoteKeyboardChannel"
         const val NOTIF_ID = 1
 
-        // Actions
         const val ACTION_START_SERVER = "START_SERVER"
         const val ACTION_START_CLIENT = "START_CLIENT"
-        const val ACTION_SEND = "SEND"
         const val ACTION_STOP = "STOP"
 
-        // Broadcast
         const val BROADCAST_CONNECTED    = "com.remotekeyboard.CONNECTED"
         const val BROADCAST_DISCONNECTED = "com.remotekeyboard.DISCONNECTED"
         const val BROADCAST_COMMAND      = "com.remotekeyboard.COMMAND"
@@ -36,10 +32,28 @@ class BluetoothService : Service() {
         const val EXTRA_DEVICE_ADDRESS   = "device_address"
 
         var instance: BluetoothService? = null
+
+        fun start(context: android.content.Context, action: String, deviceAddress: String? = null) {
+            val intent = Intent(context, BluetoothService::class.java).apply {
+                this.action = action
+                deviceAddress?.let { putExtra(EXTRA_DEVICE_ADDRESS, it) }
+            }
+            // startForegroundService only exists on API 26+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
     }
 
-    private val adapter: BluetoothAdapter? by lazy {
-        (getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
+    private val btAdapter: BluetoothAdapter? by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        } else {
+            @Suppress("DEPRECATION")
+            BluetoothAdapter.getDefaultAdapter()
+        }
     }
 
     private var socket: BluetoothSocket? = null
@@ -48,27 +62,21 @@ class BluetoothService : Service() {
     private var inputStream: InputStream? = null
 
     private val sendQueue = LinkedBlockingQueue<ByteArray>()
-    private var senderThread: Thread? = null
-    private var receiverThread: Thread? = null
-    private var heartbeatHandler: Handler? = null
-    private var heartbeatRunnable: Runnable? = null
-    private var lastHeartbeat = 0L
     private var running = false
     private var isServer = false
     private var targetDeviceAddress: String? = null
 
-    private val binder = LocalBinder()
-    inner class LocalBinder : Binder() {
-        fun getService() = this@BluetoothService
-    }
+    private val heartbeatHandler = Handler(Looper.getMainLooper())
+    private var lastHeartbeat = 0L
 
-    override fun onBind(intent: Intent?) = binder
+    inner class LocalBinder : Binder() { fun getService() = this@BluetoothService }
+    override fun onBind(intent: Intent?) = LocalBinder()
 
     override fun onCreate() {
         super.onCreate()
         instance = this
         createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification("Waiting for connection..."))
+        startForeground(NOTIF_ID, buildNotification("Remote Keyboard running"))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -76,7 +84,7 @@ class BluetoothService : Service() {
             ACTION_START_SERVER -> startServer()
             ACTION_START_CLIENT -> {
                 targetDeviceAddress = intent.getStringExtra(EXTRA_DEVICE_ADDRESS)
-                startClient(targetDeviceAddress ?: return START_STICKY)
+                targetDeviceAddress?.let { startClient(it) }
             }
             ACTION_STOP -> stopSelf()
         }
@@ -87,8 +95,8 @@ class BluetoothService : Service() {
         isServer = true
         Thread {
             try {
-                serverSocket = adapter?.listenUsingRfcommWithServiceRecord("RemoteKeyboard", SERVICE_UUID)
-                updateNotification("Waiting for keyboard to connect...")
+                serverSocket = btAdapter?.listenUsingRfcommWithServiceRecord("RemoteKeyboard", SERVICE_UUID)
+                updateNotification("Waiting for keyboard phone...")
                 val conn = serverSocket?.accept() ?: return@Thread
                 handleConnection(conn)
             } catch (e: IOException) {
@@ -101,18 +109,18 @@ class BluetoothService : Service() {
         isServer = false
         Thread {
             var attempts = 0
-            while (running || attempts == 0) {
+            while (true) {
                 try {
-                    val device = adapter?.getRemoteDevice(address) ?: break
+                    val device = btAdapter?.getRemoteDevice(address) ?: break
                     val conn = device.createRfcommSocketToServiceRecord(SERVICE_UUID)
-                    adapter?.cancelDiscovery()
+                    btAdapter?.cancelDiscovery()
                     conn.connect()
                     handleConnection(conn)
                     break
                 } catch (e: IOException) {
                     attempts++
-                    Log.w(TAG, "Connect attempt $attempts failed, retrying...")
-                    Thread.sleep(2000L * minOf(attempts, 5))
+                    Log.w(TAG, "Connect attempt $attempts failed")
+                    try { Thread.sleep(2000L * minOf(attempts, 5)) } catch (_: InterruptedException) {}
                 }
             }
         }.start()
@@ -123,19 +131,15 @@ class BluetoothService : Service() {
         outputStream = conn.outputStream
         inputStream = conn.inputStream
         running = true
-
-        sendBroadcast(Intent(BROADCAST_CONNECTED).apply {
-            putExtra(EXTRA_DEVICE_ADDRESS, conn.remoteDevice.address)
-        })
         updateNotification("Connected to ${conn.remoteDevice.name ?: conn.remoteDevice.address}")
-
+        sendBroadcast(Intent(BROADCAST_CONNECTED).putExtra(EXTRA_DEVICE_ADDRESS, conn.remoteDevice.address))
         startSender()
         startReceiver()
         startHeartbeat()
     }
 
     private fun startSender() {
-        senderThread = Thread {
+        Thread {
             while (running) {
                 try {
                     val cmd = sendQueue.take()
@@ -146,115 +150,94 @@ class BluetoothService : Service() {
                     break
                 }
             }
-        }.also { it.start() }
+        }.start()
     }
 
     private fun startReceiver() {
-        receiverThread = Thread {
-            val buffer = ByteArray(256)
+        Thread {
             while (running) {
                 try {
-                    val headerBytes = ByteArray(2)
-                    inputStream?.read(headerBytes) ?: break
-                    val type = headerBytes[0]
-                    val len = headerBytes[1].toInt() and 0xFF
-                    val payload = ByteArray(len)
-                    if (len > 0) inputStream?.read(payload)
-                    val fullCmd = headerBytes + payload
-                    processIncoming(fullCmd)
+                    val header = ByteArray(2)
+                    inputStream?.read(header) ?: break
+                    val len = header[1].toInt() and 0xFF
+                    val payload = if (len > 0) ByteArray(len).also { inputStream?.read(it) } else ByteArray(0)
+                    processIncoming(header + payload)
                 } catch (e: Exception) {
                     if (running) handleDisconnect()
                     break
                 }
             }
-        }.also { it.start() }
+        }.start()
     }
 
     private fun processIncoming(bytes: ByteArray) {
         val (type, text) = Command.decode(bytes) ?: return
         when (type) {
-            Command.TYPE_HEARTBEAT -> send(Command.encode(Command.TYPE_HEARTBEAT_ACK))
+            Command.TYPE_HEARTBEAT     -> send(Command.encode(Command.TYPE_HEARTBEAT_ACK))
             Command.TYPE_HEARTBEAT_ACK -> lastHeartbeat = System.currentTimeMillis()
-            else -> {
-                sendBroadcast(Intent(BROADCAST_COMMAND).apply {
-                    putExtra(EXTRA_COMMAND_TYPE, type)
-                    putExtra(EXTRA_COMMAND_TEXT, text)
-                })
-            }
+            else -> sendBroadcast(Intent(BROADCAST_COMMAND)
+                .putExtra(EXTRA_COMMAND_TYPE, type.toInt())
+                .putExtra(EXTRA_COMMAND_TEXT, text))
         }
     }
 
     private fun startHeartbeat() {
-        heartbeatHandler = Handler(Looper.getMainLooper())
         lastHeartbeat = System.currentTimeMillis()
-        heartbeatRunnable = object : Runnable {
+        val runnable = object : Runnable {
             override fun run() {
                 if (!running) return
                 send(Command.encode(Command.TYPE_HEARTBEAT))
-                val elapsed = System.currentTimeMillis() - lastHeartbeat
-                if (elapsed > 15_000) {
-                    Log.w(TAG, "Heartbeat timeout, reconnecting")
-                    handleDisconnect()
-                    return
+                if (System.currentTimeMillis() - lastHeartbeat > 15_000) {
+                    handleDisconnect(); return
                 }
-                heartbeatHandler?.postDelayed(this, 5_000)
+                heartbeatHandler.postDelayed(this, 5_000)
             }
         }
-        heartbeatHandler?.postDelayed(heartbeatRunnable!!, 5_000)
+        heartbeatHandler.postDelayed(runnable, 5_000)
     }
 
-    fun send(bytes: ByteArray) {
-        sendQueue.offer(bytes)
-    }
+    fun send(bytes: ByteArray) { sendQueue.offer(bytes) }
 
     private fun handleDisconnect() {
         running = false
         sendBroadcast(Intent(BROADCAST_DISCONNECTED))
         updateNotification("Disconnected — reconnecting...")
         cleanup()
-        if (!isServer && targetDeviceAddress != null) {
-            Thread.sleep(2000)
-            startClient(targetDeviceAddress!!)
-        } else if (isServer) {
-            startServer()
-        }
+        try { Thread.sleep(2000) } catch (_: InterruptedException) {}
+        if (isServer) startServer() else targetDeviceAddress?.let { startClient(it) }
     }
 
     private fun cleanup() {
-        heartbeatRunnable?.let { heartbeatHandler?.removeCallbacks(it) }
-        try { socket?.close() } catch (_: IOException) {}
+        try { socket?.close() }       catch (_: IOException) {}
         try { serverSocket?.close() } catch (_: IOException) {}
         socket = null; outputStream = null; inputStream = null
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(CHANNEL_ID, "Remote Keyboard", NotificationManager.IMPORTANCE_LOW)
-        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val ch = NotificationChannel(CHANNEL_ID, "Remote Keyboard", NotificationManager.IMPORTANCE_LOW)
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
+        }
     }
 
     private fun buildNotification(text: String): Notification {
-        val intent = PendingIntent.getActivity(this, 0,
-            Intent(this, RoleSelectActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE)
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        val pi = PendingIntent.getActivity(this, 0, Intent(this, RoleSelectActivity::class.java), flags)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Remote Keyboard")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_send)
-            .setContentIntent(intent)
+            .setContentIntent(pi)
             .setOngoing(true)
             .build()
     }
 
     private fun updateNotification(text: String) {
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIF_ID, buildNotification(text))
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, buildNotification(text))
     }
 
     override fun onDestroy() {
-        running = false
-        cleanup()
-        instance = null
+        running = false; cleanup(); instance = null
         super.onDestroy()
     }
 }
-
