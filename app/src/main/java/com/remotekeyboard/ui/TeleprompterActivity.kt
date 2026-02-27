@@ -1,6 +1,7 @@
 package com.remotekeyboard.ui
 
 import android.content.*
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
@@ -38,41 +39,31 @@ class TeleprompterActivity : AppCompatActivity() {
         binding = ActivityTeleprompterBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Keep screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Start BT server
-        val svcIntent = Intent(this, BluetoothService::class.java).apply {
-            action = BluetoothService.ACTION_START_SERVER
-        }
-        startForegroundService(svcIntent)
+        BluetoothService.start(this, BluetoothService.ACTION_START_SERVER)
 
         binding.btnClear.setOnClickListener {
             textBuffer.clear()
             binding.teleprompterText.text = ""
         }
 
-        val filter = IntentFilter().apply {
+        registerReceiver(commandReceiver, IntentFilter().apply {
             addAction(BluetoothService.BROADCAST_COMMAND)
             addAction(BluetoothService.BROADCAST_CONNECTED)
             addAction(BluetoothService.BROADCAST_DISCONNECTED)
-        }
-        registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        })
     }
 
     private fun applyCommand(type: Byte, text: String) {
         when (type) {
-            Command.TYPE_CHAR -> textBuffer.append(text)
-            Command.TYPE_BACKSPACE -> if (textBuffer.isNotEmpty())
-                textBuffer.deleteCharAt(textBuffer.lastIndex)
-            Command.TYPE_ENTER -> textBuffer.append("\n")
-            Command.TYPE_CLEAR -> textBuffer.clear()
+            Command.TYPE_CHAR      -> textBuffer.append(text)
+            Command.TYPE_BACKSPACE -> if (textBuffer.isNotEmpty()) textBuffer.deleteCharAt(textBuffer.lastIndex)
+            Command.TYPE_ENTER     -> textBuffer.append("\n")
+            Command.TYPE_CLEAR     -> textBuffer.clear()
         }
         binding.teleprompterText.text = textBuffer.toString()
-        // Auto-scroll to bottom
-        binding.scrollView.post {
-            binding.scrollView.fullScroll(android.widget.ScrollView.FOCUS_DOWN)
-        }
+        binding.scrollView.post { binding.scrollView.fullScroll(android.widget.ScrollView.FOCUS_DOWN) }
     }
 
     override fun onDestroy() {
