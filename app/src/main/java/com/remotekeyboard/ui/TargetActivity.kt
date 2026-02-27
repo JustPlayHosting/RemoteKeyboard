@@ -17,13 +17,10 @@ class TargetActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.btnStartListening.setOnClickListener {
-            val svcIntent = Intent(this, BluetoothService::class.java).apply {
-                action = BluetoothService.ACTION_START_SERVER
-            }
-            startForegroundService(svcIntent)
+            BluetoothService.start(this, BluetoothService.ACTION_START_SERVER)
             binding.statusText.text = "Listening for keyboard phone..."
             Toast.makeText(this,
-                "Now select 'Remote Keyboard' as your keyboard and tap any text field!",
+                "Select 'Remote Keyboard' as your keyboard, then tap any text field!",
                 Toast.LENGTH_LONG).show()
         }
 
