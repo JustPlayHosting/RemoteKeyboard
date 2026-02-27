@@ -159,13 +159,12 @@ class RemoteKeyboardIME : InputMethodService() {
 
     private fun switchIME() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        // window token is required — this is the correct cross-version approach
-        val token = window?.window?.attributes?.token
+        // In an IME, the token must come from the decor view, not window attributes
+        val token = window.window?.decorView?.windowToken
         if (token != null) {
             @Suppress("DEPRECATION")
             imm.switchToNextInputMethod(token, false)
         } else {
-            // Fallback: show the system IME picker
             imm.showInputMethodPicker()
         }
     }
