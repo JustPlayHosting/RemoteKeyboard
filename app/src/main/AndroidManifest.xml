@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Android 5–11: classic BT permissions -->
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+
+    <!-- Android 12+ only -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
+        android:minSdkVersion="31"/>
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:minSdkVersion="31"
         android:usesPermissionFlags="neverForLocation"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
+
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
@@ -31,40 +35,27 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.KeyboardActivity"
-            android:exported="false"
-            android:label="Keyboard Mode"/>
-
+        <activity android:name=".ui.KeyboardActivity"    android:exported="false"/>
+        <activity android:name=".ui.TargetActivity"      android:exported="false"/>
         <activity
             android:name=".ui.TeleprompterActivity"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:label="Teleprompter Mode"
             android:theme="@style/Theme.RemoteKeyboard.Fullscreen"/>
-
-        <activity
-            android:name=".ui.TargetActivity"
-            android:exported="false"
-            android:label="Target Mode"/>
 
         <service
             android:name=".ime.RemoteKeyboardIME"
             android:exported="true"
-            android:label="@string/ime_name"
             android:permission="android.permission.BIND_INPUT_METHOD">
             <intent-filter>
                 <action android:name="android.view.InputMethod"/>
             </intent-filter>
-            <meta-data
-                android:name="android.view.im"
-                android:resource="@xml/method"/>
+            <meta-data android:name="android.view.im" android:resource="@xml/method"/>
         </service>
 
         <service
             android:name=".bluetooth.BluetoothService"
-            android:exported="false"
-            android:foregroundServiceType="connectedDevice"/>
+            android:exported="false"/>
 
     </application>
 
