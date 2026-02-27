@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.remotekeyboard"
-        minSdk 26
+        minSdk 21
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -39,4 +39,3 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.lifecycle:lifecycle-service:2.7.0'
 }
-
