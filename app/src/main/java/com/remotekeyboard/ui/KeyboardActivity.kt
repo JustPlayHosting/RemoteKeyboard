@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.*
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.ArrayAdapter
@@ -24,7 +25,7 @@ class KeyboardActivity : AppCompatActivity() {
                 BluetoothService.BROADCAST_CONNECTED -> {
                     binding.statusText.text = "Connected!"
                     binding.statusText.setTextColor(0xFF00CC66.toInt())
-                    binding.btnConnect.text = "Disconnect"
+                    binding.btnConnect.text = "Connected"
                 }
                 BluetoothService.BROADCAST_DISCONNECTED -> {
                     binding.statusText.text = "Disconnected — reconnecting..."
@@ -49,17 +50,13 @@ class KeyboardActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             val device = pairedDevices[idx]
-            val svcIntent = Intent(this, BluetoothService::class.java).apply {
-                action = BluetoothService.ACTION_START_CLIENT
-                putExtra(BluetoothService.EXTRA_DEVICE_ADDRESS, device.address)
-            }
-            startForegroundService(svcIntent)
+            BluetoothService.start(this, BluetoothService.ACTION_START_CLIENT, device.address)
             binding.statusText.text = "Connecting to ${device.name}..."
         }
 
         binding.btnImeHint.setOnClickListener {
             Toast.makeText(this,
-                "Select 'Remote Keyboard' as your keyboard on the TARGET phone, then tap any text field",
+                "On the target phone: select 'Remote Keyboard' as keyboard, then tap any text field",
                 Toast.LENGTH_LONG).show()
         }
 
@@ -67,23 +64,26 @@ class KeyboardActivity : AppCompatActivity() {
             addAction(BluetoothService.BROADCAST_CONNECTED)
             addAction(BluetoothService.BROADCAST_DISCONNECTED)
         }
-        registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        registerReceiver(stateReceiver, filter)
     }
 
     private fun loadPairedDevices() {
-        val adapter = (getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
-        val bonded = adapter?.bondedDevices ?: emptySet()
-        pairedDevices.clear()
-        deviceNames.clear()
+        val adapter = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        } else {
+            @Suppress("DEPRECATION")
+            BluetoothAdapter.getDefaultAdapter()
+        }
+
+        val bonded = try { adapter?.bondedDevices ?: emptySet() } catch (e: SecurityException) { emptySet() }
+        pairedDevices.clear(); deviceNames.clear()
         pairedDevices.addAll(bonded)
-        deviceNames.addAll(bonded.map { "${it.name} (${it.address})" })
+        deviceNames.addAll(bonded.map { "${it.name ?: "Unknown"} (${it.address})" })
 
         binding.deviceSpinner.adapter = ArrayAdapter(this,
             android.R.layout.simple_spinner_dropdown_item, deviceNames)
 
-        if (pairedDevices.isEmpty()) {
-            binding.noDevicesHint.visibility = View.VISIBLE
-        }
+        binding.noDevicesHint.visibility = if (pairedDevices.isEmpty()) View.VISIBLE else View.GONE
     }
 
     override fun onDestroy() {
@@ -91,4 +91,3 @@ class KeyboardActivity : AppCompatActivity() {
         super.onDestroy()
     }
 }
-
