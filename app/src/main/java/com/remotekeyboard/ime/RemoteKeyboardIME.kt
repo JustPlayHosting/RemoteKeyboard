@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -55,7 +56,12 @@ class RemoteKeyboardIME : InputMethodService() {
             addAction(BluetoothService.BROADCAST_CONNECTED)
             addAction(BluetoothService.BROADCAST_DISCONNECTED)
         }
-        registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        // RECEIVER_NOT_EXPORTED is API 33+ only
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(commandReceiver, filter)
+        }
     }
 
     override fun onCreateInputView(): View {
@@ -86,7 +92,6 @@ class RemoteKeyboardIME : InputMethodService() {
 
         toolbar.addView(toolbarBtn("😊") { showEmoji() })
 
-
         toolbar.addView(toolbarBtn("📋") {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = clipboard.primaryClip
@@ -101,7 +106,6 @@ class RemoteKeyboardIME : InputMethodService() {
         toolbar.addView(toolbarBtn("🎨") {
             Toast.makeText(this, "Theme customisation coming soon", Toast.LENGTH_SHORT).show()
         })
-
 
         // Spacer
         toolbar.addView(View(this).apply {
@@ -128,34 +132,32 @@ class RemoteKeyboardIME : InputMethodService() {
             onKey = { type, text -> sendOrInject(type, text) },
             onSwitchLayer = { layer ->
                 when (layer) {
-                    KeyboardLayer.EMOJI       -> showEmoji()
-                    KeyboardLayer.SWITCH_IME  -> {
-                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                        // Try switching directly first, fall back to picker
-                        val switched = switchToNextInputMethod(false)
-                        if (!switched) imm.showInputMethodPicker()
-                    }
+                    KeyboardLayer.EMOJI      -> showEmoji()
+                    KeyboardLayer.SWITCH_IME -> switchIME()
                     else -> {}
                 }
             }
         )
-        rootContainer!!.addView(
-            keyboardView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
+        rootContainer!!.addView(keyboardView,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT))
 
-        root.addView(
-            rootContainer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
+        root.addView(rootContainer,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT))
 
         return root
+    }
+
+    private fun switchIME() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // API 28+ — switch directly without picker
+            switchToNextInputMethod(false)
+        } else {
+            // API 21–27 — show the system IME picker
+            imm.showInputMethodPicker()
+        }
     }
 
     private fun showEmoji() {
@@ -165,10 +167,8 @@ class RemoteKeyboardIME : InputMethodService() {
             onEmoji = { emoji -> sendOrInject(Command.TYPE_CHAR, emoji) },
             onBack  = { hideEmoji() }
         )
-        container.addView(
-            emojiPanel,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(220))
-        )
+        container.addView(emojiPanel,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(220)))
     }
 
     private fun hideEmoji() {
