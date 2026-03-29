@@ -8,6 +8,8 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
